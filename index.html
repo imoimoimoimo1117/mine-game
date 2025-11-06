@@ -1,26 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>オンライン将棋 (Supabase版)</title>
-<script type="module" src="shogi.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>オンライン将棋 (Supabase 完全版)</title>
+<link rel="icon" href="" />
 <style>
-  body { font-family:sans-serif; display:flex; justify-content:center; padding:20px; background:#f4f2ef;}
-  #board { display:grid; grid-template-columns:repeat(9,50px); grid-template-rows:repeat(9,50px); border:3px solid #333;}
-  .cell { width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid #ccc; cursor:pointer; background:#f9e2a0;}
-  .cell:nth-child(odd) { background:#f6d98b;}
-  .piece { font-size:20px; user-select:none; }
-  .black { color:#000; }
-  .white { color:#a33; transform:rotate(180deg); }
+  :root{ --cell:56px; --piece:46px; }
+  body{ font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN","メイリオ",sans-serif; margin:0; padding:18px; background:#f3f5f6; }
+  .app{ display:flex; gap:18px; align-items:flex-start; }
+  .left{ }
+  .board{ display:grid; grid-template-columns:repeat(9,var(--cell)); grid-template-rows:repeat(9,var(--cell)); gap:0; border:4px solid #3b2f2f; background:#e7cfa3; }
+  .cell{ width:var(--cell); height:var(--cell); display:flex; align-items:center; justify-content:center; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06); cursor:pointer; user-select:none; }
+  .cell.dark{ background:#dfb783; }
+  .cell.highlight{ background: rgba(59,130,246,0.18); }
+  .piece{ width:var(--piece); height:var(--piece); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:20px; box-shadow:0 2px 0 rgba(0,0,0,0.12); }
+  .piece.black{ background:#fff7e6; color:#000; }
+  .piece.white{ background:#2b2b2b; color:#fff; transform:rotate(180deg); }
+  .selected{ outline:3px solid #3b82f6; outline-offset:-3px; }
+  .controls{ width:320px; }
+  .info{ background:#fff; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(20,20,20,0.06); }
+  .caps{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .cap-btn{ display:inline-flex; gap:6px; align-items:center; padding:6px 8px; border-radius:6px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+  .cap-count{ font-weight:700; min-width:20px; text-align:center; }
+  input, button { padding:8px; border-radius:6px; border:1px solid #ccc; }
+  .status{ margin-top:8px; font-size:14px; color:#333; }
+  .log{ margin-top:8px; max-height:160px; overflow:auto; font-size:12px; background:#f9f9f9; padding:8px; border-radius:6px; border:1px solid #eee; }
 </style>
 </head>
 <body>
-<div>
-  <h2>オンライン将棋 (Supabase)</h2>
-  <input id="roomInput" placeholder="ルーム名を入力" />
-  <button id="joinBtn">ルーム参加</button>
-  <div id="status"></div>
-  <div id="board"></div>
-</div>
+  <h2>オンライン将棋（Supabase 完全版）</h2>
+  <div style="margin-bottom:8px;">
+    <label>ルーム名：<input id="roomInput" placeholder="room name" /></label>
+    <button id="joinBtn">参加 / 作成</button>
+    <button id="resetRoomBtn">ルームを初期化（DB更新）</button>
+  </div>
+
+  <div class="app">
+    <div class="left">
+      <div id="board" class="board" role="grid" aria-label="将棋盤"></div>
+    </div>
+
+    <div class="controls">
+      <div class="info">
+        <div><strong id="turnText">手番: —</strong></div>
+        <div class="status" id="status">接続待ち</div>
+        <div style="margin-top:8px;">
+          <button id="flipBtn">盤を反転</button>
+          <button id="resignBtn" style="margin-left:6px;">投了</button>
+        </div>
+
+        <hr style="margin:10px 0" />
+
+        <div>持ち駒（先手＝下 / 後手＝上）</div>
+        <div style="margin-top:6px;">先手</div>
+        <div id="capsB" class="caps"></div>
+        <div style="margin-top:8px;">後手</div>
+        <div id="capsW" class="caps"></div>
+
+        <div style="margin-top:8px;"><strong>デバッグログ</strong></div>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+<script type="module" src="./shogi.js"></script>
 </body>
 </html>
