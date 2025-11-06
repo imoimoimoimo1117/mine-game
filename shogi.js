@@ -29,7 +29,11 @@ joinBtn.onclick = async () => {
     // ルームがなければ作る（先手）
     mySide = 'b'
     const initBoard = Array(9).fill(0).map(()=>Array(9).fill(null))
-    await supabase.from('games').insert([{ room, board:initBoard, turn:'b', captured:{b:[], w:[]} }])
+    try {
+      await supabase.from('games').insert([{ room, board:initBoard, turn:'b', captured:{b:[], w:[]} }])
+    } catch (e) {
+      console.error(e);
+    }
     statusEl.textContent = 'あなたは先手です。相手を待っています。'
   } else {
     mySide = 'w'
