@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Supabase接続設定
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY'
+const SUPABASE_URL = 'https://tksriuqqarssyotmegmh.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrc3JpdXFxYXJzc3lvdG1lZ21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzOTU1NjAsImV4cCI6MjA3Nzk3MTU2MH0.ijlOfvZsLhnD3C2DmvNYjWHDjrHnhcAOYa3I2O7BDtk'
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const boardEl = document.getElementById('board')
