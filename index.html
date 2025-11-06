@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>オンライン将棋 (Supabase版)</title>
+<script type="module" src="shogi.js"></script>
+<style>
+  body { font-family:sans-serif; display:flex; justify-content:center; padding:20px; background:#f4f2ef;}
+  #board { display:grid; grid-template-columns:repeat(9,50px); grid-template-rows:repeat(9,50px); border:3px solid #333;}
+  .cell { width:50px; height:50px; display:flex; align-items:center; justify-content:center; border:1px solid #ccc; cursor:pointer; background:#f9e2a0;}
+  .cell:nth-child(odd) { background:#f6d98b;}
+  .piece { font-size:20px; user-select:none; }
+  .black { color:#000; }
+  .white { color:#a33; transform:rotate(180deg); }
+</style>
+</head>
+<body>
+<div>
+  <h2>オンライン将棋 (Supabase)</h2>
+  <input id="roomInput" placeholder="ルーム名を入力" />
+  <button id="joinBtn">ルーム参加</button>
+  <div id="status"></div>
+  <div id="board"></div>
+</div>
+</body>
+</html>
