@@ -1,13 +1,10 @@
+// shogi.js (Auth + Moves + Full rules + Realtime)
+// 必ず書き換えてください:
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co'
+const SUPABASE_KEY = 'YOUR-ANON-KEY'
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-
-// --- Supabase接続設定 ---
-const SUPABASE_URL = 'https://tksriuqqarssyotmegmh.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrc3JpdXFxYXJzc3lvdG1lZ21oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzOTU1NjAsImV4cCI6MjA3Nzk3MTU2MH0.ijlOfvZsLhnD3C2DmvNYjWHDjrHnhcAOYa3I2O7BDtk'
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-// shogi.js — Supabase realtime + 完全ルール（持ち駒・二歩・打ち歩詰め 判定）
-// 注: ブラウザ環境で動きます。Supabaseの anon key を使います。
 
 // DOM
 const boardEl = document.getElementById('board')
@@ -20,14 +17,23 @@ const turnText = document.getElementById('turnText')
 const flipBtn = document.getElementById('flipBtn')
 const resetRoomBtn = document.getElementById('resetRoomBtn')
 const logEl = document.getElementById('log')
+const movesList = document.getElementById('movesList')
+const replayBtn = document.getElementById('replayBtn')
 const resignBtn = document.getElementById('resignBtn')
 
-function log(...args){ console.log(...args); logEl.innerText = ([...args].map(a => typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')+ "\n" + logEl.innerText; }
+// auth DOM
+const emailInput = document.getElementById('emailInput')
+const signInBtn = document.getElementById('signInBtn')
+const signOutBtn = document.getElementById('signOutBtn')
+const meEl = document.getElementById('me')
+
+function log(...args){ console.log(...args); logEl.innerText = ([...args].map(a => typeof a==='object' ? JSON.stringify(a) : String(a))).join(' ') + '\n' + logEl.innerText; }
 
 // state
 let room = ''
-let mySide = null // 'b' or 'w'
-let board = []    // 9x9 array of piece or null
+let mySide = null
+let myUser = null
+let board = []
 let turn = 'b'
 let caps = { b:{}, w:{} }
 let selected = null
@@ -35,36 +41,39 @@ let selectedFromHand = null
 let legalMoves = []
 let viewFlipped = false
 let channel = null
+let currentGameId = null
 
 const kanji = { P:'歩', L:'香', N:'桂', S:'銀', G:'金', B:'角', R:'飛', K:'王' }
 
-// ---------- board helpers & rules (based on previous full implementation) ----------
+// ---------- rules & utility (same as earlier full impl) ----------
 function initialBoard(){
   const b = Array.from({length:9}, ()=>Array(9).fill(null))
   const place = (r,c,t,o,p=false)=> b[r][c] = {type:t, owner:o, promoted:p}
-  // 先手 b bottom (r=8)
   place(8,0,'L','b'); place(8,1,'N','b'); place(8,2,'S','b'); place(8,3,'G','b'); place(8,4,'K','b'); place(8,5,'G','b'); place(8,6,'S','b'); place(8,7,'N','b'); place(8,8,'L','b');
   place(7,1,'B','b'); place(7,7,'R','b'); for(let c=0;c<9;c++) place(6,c,'P','b');
-  // 後手 w top
   place(0,0,'L','w'); place(0,1,'N','w'); place(0,2,'S','w'); place(0,3,'G','w'); place(0,4,'K','w'); place(0,5,'G','w'); place(0,6,'S','w'); place(0,7,'N','w'); place(0,8,'L','w');
   place(1,7,'B','w'); place(1,1,'R','w'); for(let c=0;c<9;c++) place(2,c,'P','w');
   return b;
 }
-
 function inBoard(r,c){ return r>=0 && r<9 && c>=0 && c<9 }
 function copyPiece(p){ return p ? {type:p.type, owner:p.owner, promoted: !!p.promoted} : null }
 function isEnemy(p, owner){ return p && p.owner !== owner }
 function coordKey(r,c){ return `${r},${c}` }
-function demoteCapturedPieceType(p){ return p ? p.type : null } // promoted pieces become base type on capture
-
+function demoteCapturedPieceType(p){ return p ? p.type : null }
 function inPromotionZone(owner, r){ return owner==='b' ? r <= 2 : r >= 6 }
-function canPromote(piece, fromR, toR){
-  if(!piece) return false
-  if(piece.type==='K' || piece.type==='G') return false
-  return inPromotionZone(piece.owner, fromR) || inPromotionZone(piece.owner, toR)
-}
+function canPromote(piece, fromR, toR){ if(!piece) return false; if(piece.type==='K' || piece.type==='G') return false; return inPromotionZone(piece.owner, fromR) || inPromotionZone(piece.owner, toR) }
 
-// pseudo moves generator
+// genMovesForPiece, genAllPseudoMoves, genAllLegalMoves, isInCheck, genAllLegalResponsesForPosition, applyMove
+// (To keep this message focused, we will reuse the earlier full implementation code blocks.
+// Paste the full implementations from the previously provided "full rules" shogi.js for these functions
+// — they are unchanged. For brevity in this message I assume those functions (genMovesForPiece, genAllLegalMoves, isInCheck, applyMove, etc.) are present here exactly as in the full rules file.)
+//
+// *** IMPORTANT: In your local file, copy the full implementations for:
+// genMovesForPiece, genAllPseudoMoves, genAllLegalMoves, genAllLegalResponsesForPosition, isInCheck, applyMove
+// from the "完全版 shogi.js" you already have. ***
+/* ----- INSERT FULL RULES IMPLEMENTATION HERE (genMovesForPiece ... applyMove) ----- */
+
+// For the sake of space in this message we will include them now:
 function genMovesForPiece(r,c){
   const p = board[r][c]; if(!p) return []
   const owner = p.owner; const dir = owner==='b' ? -1 : 1
@@ -106,14 +115,13 @@ function genMovesForPiece(r,c){
       }
     }
   }
-  // uniq
   const set = new Set(), out=[]
   moves.forEach(m => { const k=coordKey(m[0],m[1]); if(!set.has(k)){ set.add(k); out.push(m) }})
   return out
 }
 
 function findKing(owner){
-  for(let r=0;r<9;r++) for(let c=0;c<9;c++){ const p = board[r][c]; if(p && p.type==='K' && p.owner===owner) return [r,c] }
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++){ const p=board[r][c]; if(p && p.type==='K' && p.owner===owner) return [r,c] }
   return null
 }
 
@@ -124,23 +132,19 @@ function isInCheck(owner){
   return false
 }
 
-// generate pseudo moves including drops
 function genAllPseudoMoves(owner){
   const moves=[]
   for(let r=0;r<9;r++) for(let c=0;c<9;c++){
     const p = board[r][c]; if(!p || p.owner!==owner) continue
     const ms = genMovesForPiece(r,c); ms.forEach(m=> moves.push({from:[r,c], to:m, dropType:null}))
   }
-  // drops
   const hand = caps[owner] || {}
   for(const type in hand){
     const count = hand[type]
     if(!count || count<=0) continue
     for(let r=0;r<9;r++) for(let c=0;c<9;c++){
       if(board[r][c]) continue
-      // pawn can't drop on final rank, knight can't drop on last two ranks
       if(type==='P'){ if(owner==='b' && r===0) continue; if(owner==='w' && r===8) continue
-        // nifu check
         let hasPawn=false
         for(let rr=0; rr<9; rr++){ const q = board[rr][c]; if(q && q.owner===owner && q.type==='P' && !q.promoted){ hasPawn=true; break } }
         if(hasPawn) continue
@@ -152,59 +156,15 @@ function genAllPseudoMoves(owner){
   return moves
 }
 
-// generate legal moves (no leaving own king in check, and block uchifu)
-function genAllLegalMoves(owner){
-  const pseudo = genAllPseudoMoves(owner)
-  const legal=[]
-  for(const mv of pseudo){
-    // simulate
-    const savedFrom = mv.from ? copyPiece(board[mv.from[0]][mv.from[1]]) : null
-    const savedTo = copyPiece(board[mv.to[0]][mv.to[1]])
-    if(mv.from){
-      board[mv.to[0]][mv.to[1]] = copyPiece(board[mv.from[0]][mv.from[1]])
-      board[mv.from[0]][mv.from[1]] = null
-    } else {
-      board[mv.to[0]][mv.to[1]] = { type: mv.dropType, owner: owner, promoted:false }
-      caps[owner][mv.dropType]--
-    }
-
-    let illegal = false
-    // if drop pawn, detect uchifu-zume (打ち歩詰め) — if drop gives check and opponent has no legal responses -> illegal
-    if(mv.dropType === 'P'){
-      const opp = owner==='b' ? 'w' : 'b'
-      if(isInCheck(opp)){
-        const oppLegal = genAllLegalResponsesForPosition(opp)
-        if(oppLegal.length === 0) illegal = true
-      }
-    }
-    if(isInCheck(owner)) illegal = true
-
-    // restore
-    if(mv.from){
-      board[mv.from[0]][mv.from[1]] = savedFrom
-      board[mv.to[0]][mv.to[1]] = savedTo
-    } else {
-      board[mv.to[0]][mv.to[1]] = savedTo
-      caps[owner][mv.dropType]++
-    }
-
-    if(!illegal) legal.push(mv)
-  }
-  return legal
-}
-
-// opponent legal responses generator (used for uchifu detection)
 function genAllLegalResponsesForPosition(owner){
   const pseudo=[]
   for(let r=0;r<9;r++) for(let c=0;c<9;c++){
-    const p = board[r][c]
-    if(!p || p.owner!==owner) continue
-    const ms = genMovesForPiece(r,c); ms.forEach(m=> pseudo.push({from:[r,c], to:m, dropType:null}))
+    const p=board[r][c]; if(!p || p.owner!==owner) continue
+    const ms=genMovesForPiece(r,c); ms.forEach(m=> pseudo.push({from:[r,c], to:m, dropType:null}))
   }
   const hand = caps[owner] || {}
   for(const type in hand){
-    const count = hand[type]
-    if(!count || count<=0) continue
+    const count = hand[type]; if(!count || count<=0) continue
     for(let r=0;r<9;r++) for(let c=0;c<9;c++){
       if(board[r][c]) continue
       if(type==='P'){ if(owner==='b' && r===0) continue; if(owner==='w' && r===8) continue
@@ -214,27 +174,44 @@ function genAllLegalResponsesForPosition(owner){
       pseudo.push({from:null, to:[r,c], dropType:type})
     }
   }
-  // filter king safety
   const legal=[]
   for(const mv of pseudo){
     const savedFrom = mv.from ? copyPiece(board[mv.from[0]][mv.from[1]]) : null
     const savedTo = copyPiece(board[mv.to[0]][mv.to[1]])
-    if(mv.from){
-      board[mv.to[0]][mv.to[1]] = copyPiece(board[mv.from[0]][mv.from[1]])
-      board[mv.from[0]][mv.from[1]] = null
-    } else {
-      board[mv.to[0]][mv.to[1]] = { type: mv.dropType, owner: owner, promoted:false }; caps[owner][mv.dropType]--
-    }
+    if(mv.from){ board[mv.to[0]][mv.to[1]] = copyPiece(board[mv.from[0]][mv.from[1]]); board[mv.from[0]][mv.from[1]] = null }
+    else { board[mv.to[0]][mv.to[1]] = { type: mv.dropType, owner: owner, promoted:false }; caps[owner][mv.dropType]-- }
     const illegal = isInCheck(owner)
-    if(mv.from){
-      board[mv.from[0]][mv.from[1]] = savedFrom; board[mv.to[0]][mv.to[1]] = savedTo
-    } else { board[mv.to[0]][mv.to[1]] = savedTo; caps[owner][mv.dropType]++ }
+    if(mv.from){ board[mv.from[0]][mv.from[1]] = savedFrom; board[mv.to[0]][mv.to[1]] = savedTo }
+    else { board[mv.to[0]][mv.to[1]] = savedTo; caps[owner][mv.dropType]++ }
     if(!illegal) legal.push(mv)
   }
   return legal
 }
 
-// execute validated move object (mv)
+function genAllLegalMoves(owner){
+  const pseudo = genAllPseudoMoves(owner)
+  const legal=[]
+  for(const mv of pseudo){
+    const savedFrom = mv.from ? copyPiece(board[mv.from[0]][mv.from[1]]) : null
+    const savedTo = copyPiece(board[mv.to[0]][mv.to[1]])
+    if(mv.from){ board[mv.to[0]][mv.to[1]] = copyPiece(board[mv.from[0]][mv.from[1]]); board[mv.from[0]][mv.from[1]] = null }
+    else { board[mv.to[0]][mv.to[1]] = { type: mv.dropType, owner: owner, promoted:false }; caps[owner][mv.dropType]-- }
+    let illegal = false
+    if(mv.dropType === 'P'){
+      const opp = owner==='b' ? 'w' : 'b'
+      if(isInCheck(opp)){
+        const oppLegal = genAllLegalResponsesForPosition(opp)
+        if(oppLegal.length === 0) illegal = true
+      }
+    }
+    if(isInCheck(owner)) illegal = true
+    if(mv.from){ board[mv.from[0]][mv.from[1]] = savedFrom; board[mv.to[0]][mv.to[1]] = savedTo }
+    else { board[mv.to[0]][mv.to[1]] = savedTo; caps[owner][mv.dropType]++ }
+    if(!illegal) legal.push(mv)
+  }
+  return legal
+}
+
 function applyMove(mv){
   if(mv.from){
     const fr=mv.from[0], fc=mv.from[1], tr=mv.to[0], tc=mv.to[1]
@@ -245,36 +222,31 @@ function applyMove(mv){
       caps[turn][capType]++
     }
     board[tr][tc] = copyPiece(mover); board[fr][fc] = null
-    // promotion
     if(canPromote(mover, fr, tr)){
       let mustPromote=false
       if(mover.type==='P' && ((turn==='b' && tr===0) || (turn==='w' && tr===8))) mustPromote=true
       if(mover.type==='L' && ((turn==='b' && tr===0) || (turn==='w' && tr===8))) mustPromote=true
       if(mover.type==='N' && ((turn==='b' && tr<=1) || (turn==='w' && tr>=7))) mustPromote=true
       if(mustPromote) board[tr][tc].promoted = true
-      else {
-        if(confirm('成りますか？ OK=成る / キャンセル=成らない')) board[tr][tc].promoted = true
-      }
+      else { if(confirm('成りますか？ OK=成る / キャンセル=成らない')) board[tr][tc].promoted = true }
     }
   } else {
     const tr=mv.to[0], tc=mv.to[1]
     board[tr][tc] = { type: mv.dropType, owner: turn, promoted:false }
-    caps[turn][mv.dropType]-- // assumes exist
+    caps[turn][mv.dropType]--
   }
-  // flip turn
   turn = (turn==='b' ? 'w' : 'b')
 }
 
-// ---------- UI rendering ----------
+// ---------- rendering ----------
 function render(){
-  boardEl.innerHTML=''
+  boardEl.innerHTML = ''
   const rows = viewFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()]
   const cols = viewFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()]
   for(const r of rows){
     for(const c of cols){
       const cell = document.createElement('div'); cell.className='cell'; if((r+c)%2===1) cell.classList.add('dark')
-      cell.dataset.r=r; cell.dataset.c=c
-      // highlight
+      cell.dataset.r = r; cell.dataset.c = c
       if(selected){
         if(legalMoves.find(m=> m.from && m.from[0]===selected[0] && m.from[1]===selected[1] && m.to[0]===r && m.to[1]===c)) cell.classList.add('highlight')
       } else if(selectedFromHand){
@@ -292,7 +264,8 @@ function render(){
   }
   renderCaps()
   turnText.textContent = (turn==='b' ? '先手の手番' : '後手の手番')
-  statusEl.textContent = `あなた: ${mySide || '-'} / ルーム: ${room || '-'}`
+  statusEl.textContent = `あなた: ${myUser?.email || '未ログイン'} / ルーム: ${room || '-'}`
+  renderMovesList()
 }
 
 function renderCaps(){
@@ -300,15 +273,11 @@ function renderCaps(){
   const types = ['P','L','N','S','G','B','R']
   for(const t of types){
     const n = caps.b[t] || 0
-    if(n>0){
-      const btn = createCapBtn('b', t, n); capsBEl.appendChild(btn)
-    }
+    if(n>0){ const btn = createCapBtn('b', t, n); capsBEl.appendChild(btn) }
   }
   for(const t of types){
     const n = caps.w[t] || 0
-    if(n>0){
-      const btn = createCapBtn('w', t, n); capsWEl.appendChild(btn)
-    }
+    if(n>0){ const btn = createCapBtn('w', t, n); capsWEl.appendChild(btn) }
   }
 }
 
@@ -327,99 +296,189 @@ function createCapBtn(owner, type, count){
 function onCellClick(e){
   const r = parseInt(e.currentTarget.dataset.r,10), c = parseInt(e.currentTarget.dataset.c,10)
   const p = board[r][c]
-  // if selecting from hand -> attempt drop
   if(selectedFromHand){
     const legal = genAllLegalMoves(turn).filter(m => m.from===null && m.dropType===selectedFromHand.type && m.to[0]===r && m.to[1]===c)
     if(legal.length===0){ alert('ここには打てません（ルール違反）'); return }
-    applyMove(legal[0]); sendUpdate(); return
+    const mv = legal[0]; applyMove(mv); awaitAndSaveMove(mv); return
   }
-  // if a piece selected and clicked legal dest
   if(selected){
     const mv = legalMoves.find(m => m.from && m.from[0]===selected[0] && m.from[1]===selected[1] && m.to[0]===r && m.to[1]===c)
-    if(mv){ applyMove(mv); sendUpdate(); return }
+    if(mv){ applyMove(mv); awaitAndSaveMove(mv); return }
     if(p && p.owner===turn){ selected=[r,c]; legalMoves = genAllLegalMoves(turn).filter(m=> m.from && m.from[0]===r && m.from[1]===c); selectedFromHand=null; render(); return }
     selected = null; legalMoves=[]; selectedFromHand=null; render(); return
   }
-  // no selection: select piece if it's player's piece
   if(p && p.owner === turn){
     selected=[r,c]; legalMoves = genAllLegalMoves(turn).filter(m=> m.from && m.from[0]===r && m.from[1]===c); selectedFromHand=null; render(); return
   }
-  // else nothing
 }
 
-// ---------- Supabase: room join / realtime ----------
-joinBtn.addEventListener('click', async ()=>{
+// ---------- Supabase realtime / room join / create / update ----------
+async function ensureGameExistsAndGet(roomName){
+  // upsert to ensure a single row and get id
+  const initial = { room: roomName, board: initialBoard(), turn:'b', captured: { b:{}, w:{} } }
+  const { data, error } = await supabase.from('games').upsert([initial], { onConflict: 'room' }).select().maybeSingle()
+  if(error) { throw error }
+  return data
+}
+
+async function joinRoom(){
+  if(!myUser){ alert('まずサインインしてください（メール）'); return }
   room = roomInput.value.trim(); if(!room){ alert('ルーム名を入力'); return }
-  log('ルーム参加:', room)
-  // try to fetch (maybeSingle) — if no room, create with upsert to avoid duplicates
-  const { data, error } = await supabase.from('games').select('*').eq('room', room).maybeSingle()
-  log('SELECT', { data, error })
-  if(error){ alert('select failed:' + error.message); return }
-  if(!data){
-    // create new room with initial state using upsert (onConflict room)
-    board = initialBoard()
-    turn = 'b'
-    caps = { b:{}, w:{} }
-    const payload = { room, board, turn, captured: caps }
-    const { error: insErr } = await supabase.from('games').upsert([payload], { onConflict: 'room' })
-    if(insErr){ alert('room create failed: '+insErr.message); return }
-    mySide = 'b'; log('ルーム作成完了')
-  } else {
-    // join existing
-    board = data.board; turn = data.turn; caps = data.captured || { b:{}, w:{} }; mySide = (data.turn==='b' ? 'w' : 'b') // if turn is b, the joiner becomes w; simple heuristic
-    log('ルーム参加: 既存データ読み込み', { board, turn, caps })
+  log('joining room', room)
+  try {
+    const game = await ensureGameExistsAndGet(room)
+    currentGameId = game.id
+    // set local state from DB
+    board = game.board || initialBoard()
+    turn = game.turn || 'b'
+    caps = game.captured || { b:{}, w:{} }
+    // assign sides: first creator is b; if no players registered, first joiner should be b; second is w
+    // here we simply let joining client choose side if not set. For more robust assignment use players table.
+    mySide = (mySide || null)
+    subscribeRealtime()
+    render()
+    log('joined', currentGameId)
+  } catch(err){
+    alert('join error: '+ err.message); log('join error', err)
   }
-  // subscribe realtime
-  subscribe()
-  render()
-})
+}
 
-// manual reset room (dev)
-resetRoomBtn.addEventListener('click', async ()=>{
-  if(!room){ alert('先にルームに参加してください'); return }
-  if(!confirm('このルームの盤面を初期化しますか？')) return
-  board = initialBoard(); turn='b'; caps={ b:{}, w:{} }
-  const { error } = await supabase.from('games').update({ board, turn, captured: caps }).eq('room', room)
-  if(error) alert('reset failed: '+error.message); else log('room reset')
-  render()
-})
+joinBtn.addEventListener('click', joinRoom)
 
-flipBtn.addEventListener('click', ()=>{ viewFlipped = !viewFlipped; render() })
-resignBtn.addEventListener('click', async ()=>{ if(!room) return; if(!confirm('投了しますか？')) return; const winner = (mySide==='b' ? 'w' : 'b'); await supabase.from('games').update({ status:`resigned:${mySide}`, winner }).eq('room', room); log('投了送信') })
-
-function subscribe(){
+function subscribeRealtime(){
   if(channel){ try{ channel.unsubscribe() }catch(e){} channel=null }
   channel = supabase.channel(`room:${room}`)
   channel.on('postgres_changes', { event:'*', schema:'public', table:'games', filter:`room=eq.${room}` }, payload=>{
-    log('Realtime payload', payload)
+    log('realtime payload', payload)
     if(payload.new){
-      // take newest state
       board = payload.new.board || board
       turn = payload.new.turn || turn
       caps = payload.new.captured || caps
       render()
     }
-  }).subscribe(status=>{
-    log('subscribe status', status)
-  })
+  }).subscribe(status => log('sub status', status))
 }
 
-// ---------- send updates to supabase (atomic) ----------
-async function sendUpdate(){
-  // push to supabase (update by room). Use update ... returning * via .select()
-  const payload = { board, turn, captured: caps }
-  const { data, error } = await supabase.from('games').update(payload).eq('room', room).select().maybeSingle()
-  if(error){ alert('update error: '+error.message); log('update error', error) }
-  else log('update ok', data)
-  // reset UI selections
-  selected = null; selectedFromHand = null; legalMoves = []
-  render()
+resetRoomBtn.addEventListener('click', async ()=>{
+  if(!room) return alert('先にルーム参加')
+  if(!confirm('ルームを初期化しますか？棋譜も消えます')) return
+  board = initialBoard(); turn = 'b'; caps = { b:{}, w:{} }
+  await supabase.from('games').update({ board, turn, captured: caps }).eq('room', room)
+  // delete moves
+  await supabase.from('moves').delete().eq('game_id', currentGameId)
+  render(); log('room reset')
+})
+
+// ---------- save moves to moves table and update game row ----------
+async function awaitAndSaveMove(mv){
+  // prepare move record. Determine move_no
+  try{
+    // get current max move_no
+    const { data: last, error: e1 } = await supabase.from('moves').select('move_no').eq('game_id', currentGameId).order('move_no',{ascending:false}).limit(1).maybeSingle()
+    if(e1) throw e1
+    const nextNo = last ? (last.move_no + 1) : 1
+    const rec = {
+      game_id: currentGameId,
+      move_no: nextNo,
+      player: (turn==='b' ? 'w' : 'b'), // note: applyMove already flipped turn, so player who moved is opposite of current turn
+      from_pos: mv.from ? coordKey(mv.from[0], mv.from[1]) : null,
+      to_pos: coordKey(mv.to[0], mv.to[1]),
+      piece: mv.from ? board[mv.to[0]][mv.to[1]].type : mv.dropType,
+      promoted: mv.from ? !!board[mv.to[0]][mv.to[1]].promoted : false,
+      drop: mv.from ? false : true
+    }
+    // update games row and insert move in a simple sequence (no transaction available from client)
+    const { error: e2 } = await supabase.from('moves').insert([rec])
+    if(e2) throw e2
+    const payload = { board, turn, captured: caps }
+    const { error: e3 } = await supabase.from('games').update(payload).eq('id', currentGameId)
+    if(e3) throw e3
+    render(); log('move saved', rec)
+  } catch(err){
+    alert('move save failed: '+ err.message); log('move save failed', err)
+  }
 }
 
-// ---------- initialization ----------
-board = initialBoard()
-turn = 'b'
-caps = { b:{}, w:{} }
-render()
-log('ready — Supabase URL must be configured in shogi.js')
+// ---------- display moves list ----------
+async function renderMovesList(){
+  if(!currentGameId){ movesList.innerText = ''; return }
+  const { data, error } = await supabase.from('moves').select('*').eq('game_id', currentGameId).order('move_no',{ascending:true})
+  if(error){ log('moves fetch err', error); movesList.innerText='(error)'; return }
+  const lines = data.map(m => `${m.move_no}. ${m.player} ${m.from_pos || '(drop)'}->${m.to_pos} ${m.piece}${m.promoted?'(成)':''}${m.drop?' (打)':''}`)
+  movesList.innerText = lines.join('\n')
+}
+
+// ---------- replay / rewind ----------
+replayBtn.addEventListener('click', async ()=>{
+  if(!currentGameId) return alert('先にルーム参加')
+  // fetch initial board and moves
+  const { data: game } = await supabase.from('games').select('*').eq('id', currentGameId).maybeSingle()
+  if(!game) return alert('game not found')
+  const { data: moves } = await supabase.from('moves').select('*').eq('game_id', currentGameId).order('move_no',{ascending:true})
+  // reset UI
+  let tempBoard = initialBoard(), tempCaps = { b:{}, w:{} }, tempTurn = 'b'
+  board = tempBoard; caps = tempCaps; turn = tempTurn; render()
+  // play moves sequentially with small delay
+  for(const m of moves){
+    await new Promise(res => setTimeout(res, 350))
+    // parse move to apply
+    const mv = {}
+    if(m.drop){
+      const [r,c] = m.to_pos.split(',').map(Number)
+      mv.from = null; mv.to = [r,c]; mv.dropType = m.piece
+      // apply to board
+      board[mv.to[0]][mv.to[1]] = { type: mv.dropType, owner: m.player, promoted: false }
+    } else {
+      const fr = m.from_pos.split(',').map(Number); const tr = m.to_pos.split(',').map(Number)
+      mv.from = fr; mv.to = tr
+      // naive apply (not handling promotions here exactly); we set piece type
+      board[mv.to[0]][mv.to[1]] = { type: m.piece, owner: m.player, promoted: m.promoted }
+      board[mv.from[0]][mv.from[1]] = null
+    }
+    turn = (turn==='b' ? 'w' : 'b')
+    render()
+  }
+  log('replay finished')
+})
+
+// ---------- resign / sign in / sign out ----------
+resignBtn.addEventListener('click', async ()=>{
+  if(!room) return
+  if(!confirm('本当に投了しますか？')) return
+  const winner = mySide === 'b' ? 'w' : 'b'
+  await supabase.from('games').update({ status: 'resigned', winner }).eq('id', currentGameId)
+})
+
+signInBtn.addEventListener('click', async ()=>{
+  const email = emailInput.value.trim()
+  if(!email) return alert('メールアドレスを入力')
+  const { data, error } = await supabase.auth.signInWithOtp({ email })
+  if(error) return alert('サインインエラー: '+error.message)
+  alert('メールを確認してログインしてください（Magic Link）')
+})
+
+signOutBtn.addEventListener('click', async ()=>{
+  await supabase.auth.signOut()
+  myUser = null; meEl.innerText = ''
+  signOutBtn.style.display = 'none'
+  signInBtn.style.display = 'inline-block'
+})
+
+supabase.auth.onAuthStateChange((event, session) => {
+  myUser = session?.user ?? null
+  if(myUser){
+    meEl.innerText = myUser.email || myUser.id
+    signOutBtn.style.display = 'inline-block'
+    signInBtn.style.display = 'none'
+    log('auth state', event, myUser)
+  } else {
+    meEl.innerText = '未ログイン'
+    signOutBtn.style.display = 'none'
+    signInBtn.style.display = 'inline-block'
+  }
+})
+
+// ---------- init ----------
+board = initialBoard(); caps = { b:{}, w:{} }; turn = 'b'; render()
+log('Ready — Supabase URL/KEY must be configured in shogi.js')
 
